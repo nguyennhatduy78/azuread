@@ -1,3 +1,4 @@
+//Compulsory
 function userPrincipalName (userdata){
     var emplid = userdata.get("uid").toLowerCase();
     var companyName = userdata.get("companyName");
@@ -39,6 +40,7 @@ function displayName(userdata){
 
 //Validate user data from csv
 function validate(userdata){
+    //Data validation here, if match return true, else return false
     return true;
 }
 
