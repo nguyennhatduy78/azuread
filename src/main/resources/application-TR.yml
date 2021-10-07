@@ -1,0 +1,64 @@
+#Azure AD properties
+env-credentials: false
+azure:
+  client-id: d9f9d6bd-b37a-47be-a0c2-4ca741d0cd20
+  tenant-id: bea02ce7-f719-4baf-affe-47bbd90857ee
+  client-secret: qECMX8_g1VL~y0Pwdjub4JKVPLu97-~~k-
+
+defaultPassword: Canon123
+domainSuffix: "#EXT#@canonusaDevSSO.onmicrosoft.com"
+
+#Application properties
+spring:
+  main:
+    web-application-type: none
+logging:
+  level:
+    root: INFO
+config:
+  application:
+    - version: 1
+    - name: AzureADUserMigration
+  azure:
+    - requestLimit: 20
+    - forceChangePasswordNextSignIn: true
+
+#Constants
+log-filename: TR_AAD_IdM_Feed_UserDetails
+
+path:
+  nashorn: D:\Work\AzureAD\azuread\src\main\java\com\canon\cusa\scripts\CustomizeField.js
+  sumary-logs: D:\Work\AzureAD\Data\logs
+
+#Optional
+skip-create: true
+#Email
+mail:
+  subject: Azure AD Status for IdM Feed from Tririga
+  content: Attached is the log for IdM Feed from Tririga.
+
+    !! DO NOT REPLY. AUTOMATICALLY GENERATED MAIL !!
+  tomail: nguyennhatduy78@outlook.com
+  frommail: duynn13.fsoft@gmail.com
+  password: Nhatduy1998
+  host: smtp.gmail.com
+  portssl: 587
+
+#Mapping
+mapping:
+  users:
+    # Leave field empty for further customized data from JS
+    # Compulsory fields
+    - mailNickname: _
+    - userPrincipalName: _
+    - displayName: _
+    # Optional field
+    - uid: User_ID
+    - extension_6709e8b3d5bf48899aee313df83c93eb_buildingName: Building_Name
+    - extension_6709e8b3d5bf48899aee313df83c93eb_floor: Floor
+    - extension_6709e8b3d5bf48899aee313df83c93eb_cubeNumber: Cube_Number
+  additionalUserdataProcessor:
+    - UUID: extension_6709e8b3d5bf48899aee313df83c93eb_UUID
+    - serviceCatUUID: extension_6709e8b3d5bf48899aee313df83c93eb_serviceCatUUID
+    - boxAddress: extension_6709e8b3d5bf48899aee313df83c93eb_boxAddress
+    - previousEmail: extension_6709e8b3d5bf48899aee313df83c93eb_previousEmail

@@ -1,0 +1,105 @@
+#Azure AD properties
+env-credentials: false
+azure:
+  client-id: d9f9d6bd-b37a-47be-a0c2-4ca741d0cd20
+  tenant-id: bea02ce7-f719-4baf-affe-47bbd90857ee
+  client-secret: qECMX8_g1VL~y0Pwdjub4JKVPLu97-~~k-
+
+defaultPassword: Canon123
+domainSuffix: "#EXT#@canonusaDevSSO.onmicrosoft.com"
+
+#Application properties
+spring:
+  main:
+    web-application-type: none
+logging:
+  level:
+    root: INFO
+config:
+  application:
+    - version: 1
+    - name: AzureADUserMigration
+  azure:
+    - requestLimit: 20
+    - forceChangePasswordNextSignIn: true
+
+#Constants
+log-filename: QDB_AAD_IdM_Feed_UserDetails
+
+path:
+  nashorn: D:\Work\AzureAD\azuread\src\main\java\com\canon\cusa\scripts\CustomizeField.js
+  sumary-logs: D:\Work\AzureAD\Data\logs
+#Optional
+skip-create: false
+#Email
+mail:
+  subject: Azure AD Status for IdM Feed from QDB
+  content: Attached is the log for IdM Feed from QDB.
+
+    !! DO NOT REPLY. AUTOMATICALLY GENERATED MAIL !!
+  tomail: nguyennhatduy78@outlook.com
+  frommail: duynn13.fsoft@gmail.com
+  password: Nhatduy1998
+  host: smtp.gmail.com
+  portssl: 587
+
+#Mapping
+mapping:
+  users:
+    # Leave field empty for further customized data from JS
+    # Compulsory fields
+    - mailNickname: _
+    - userPrincipalName: _
+    - displayName: _
+    # Optional field
+    - uid: NP_USERID
+    - cn: FULL_NAME
+    - givenName: NP_FNAME
+    - sn: NP_LNAME
+    - extension_6709e8b3d5bf48899aee313df83c93eb_userType: NP_USERTYPE
+    - extension_6709e8b3d5bf48899aee313df83c93eb_emplStatus: EMPL_STATUS
+    - extension_6709e8b3d5bf48899aee313df83c93eb_telephoneNumber: NP_TEL
+    - extension_6709e8b3d5bf48899aee313df83c93eb_canonMobile: NP_CELL
+    - mail: NP_EMAIL
+    - extension_6709e8b3d5bf48899aee313df83c93eb_locationSetID: SETID_LOCATION
+    - extension_6709e8b3d5bf48899aee313df83c93eb_location: LOCATION
+    - extension_6709e8b3d5bf48899aee313df83c93eb_locationDesc: LOCATION_DESCR
+    - city: LOCATION_CITY
+    - state: LOCATION_STATE
+    - extension_6709e8b3d5bf48899aee313df83c93eb_companyCode: NP_WORKING_FOR
+    - extension_6709e8b3d5bf48899aee313df83c93eb_companyDesc: COMPANY_DESCR
+    - extension_6709e8b3d5bf48899aee313df83c93eb_divisionCode: DIVISION_CD
+    - extension_6709e8b3d5bf48899aee313df83c93eb_divisionDesc: DESCR_DIVISION
+    - extension_6709e8b3d5bf48899aee313df83c93eb_groupCode: GROUP_CD
+    - extension_6709e8b3d5bf48899aee313df83c93eb_groupDesc: GROUP_CD_DESCR
+    - extension_6709e8b3d5bf48899aee313df83c93eb_jobCodeSetID: SETID_JOBCODE
+    - extension_6709e8b3d5bf48899aee313df83c93eb_jobCode: JOBCODE
+    - extension_6709e8b3d5bf48899aee313df83c93eb_jobTitle: JOBTITLE
+    - extension_6709e8b3d5bf48899aee313df83c93eb_departmentSetID: SETID_DEPT
+    - extension_6709e8b3d5bf48899aee313df83c93eb_departmentID: DEPTID
+    - extension_6709e8b3d5bf48899aee313df83c93eb_departementName: DEPTNAME
+    - extension_6709e8b3d5bf48899aee313df83c93eb_estabID: ESTABID
+    - extension_6709e8b3d5bf48899aee313df83c93eb_estabDesc: ESTAB_DESCR
+    - extension_6709e8b3d5bf48899aee313df83c93eb_costCenterName: COST_CTR_NAME
+    - extension_6709e8b3d5bf48899aee313df83c93eb_accountCode: ACCT_CD
+    - extension_6709e8b3d5bf48899aee313df83c93eb_managerID: NP_MANID
+    - extension_6709e8b3d5bf48899aee313df83c93eb_managerFName: NP_MANFNAME
+    - extension_6709e8b3d5bf48899aee313df83c93eb_managerLName: NP_MANLNAME
+    - extension_6709e8b3d5bf48899aee313df83c93eb_managerFullName: MANAGER_NAME
+    - extension_6709e8b3d5bf48899aee313df83c93eb_managerEmail: NP_MANEMAIL
+    - extension_6709e8b3d5bf48899aee313df83c93eb_hireDate: NP_ID_CREATION_DATE
+    - extension_6709e8b3d5bf48899aee313df83c93eb_terminationDate: NP_DISABLEDDATE
+    - extension_6709e8b3d5bf48899aee313df83c93eb_facilityBuildingCode: C_FACIL_BLDG_CD
+    - extension_6709e8b3d5bf48899aee313df83c93eb_subDivisionCode: SUBDIVISION_CD
+    - extension_6709e8b3d5bf48899aee313df83c93eb_subDivisionDesc: C_SUBDIVI_DESCR
+    - extension_6709e8b3d5bf48899aee313df83c93eb_subGroupCode: SUBGROUP_CD
+    - extension_6709e8b3d5bf48899aee313df83c93eb_subGroupDesc: C_SUBGRP_DESCR
+    - extension_6709e8b3d5bf48899aee313df83c93eb_consultingFirm: NP_COMPANY
+    - extension_6709e8b3d5bf48899aee313df83c93eb_UpdateDate: NP_UPDATEDDATE
+    - extension_6709e8b3d5bf48899aee313df83c93eb_UpdatedBy: NP_UPDATEDBY
+  additionalUserdataProcessor:
+    #UUID MUST come first serviceCatUUID
+    - UUID: extension_6709e8b3d5bf48899aee313df83c93eb_UUID
+    - serviceCatUUID: extension_6709e8b3d5bf48899aee313df83c93eb_serviceCatUUID
+    - boxAddress: extension_6709e8b3d5bf48899aee313df83c93eb_boxAddress
+    - previousEmail: extension_6709e8b3d5bf48899aee313df83c93eb_previousEmail
