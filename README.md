@@ -9,6 +9,21 @@ Author: Q15452
 - Write statistics to log and send to pre-configured email
 ## Basic configuration
 All options below can be configured in ***application-{profile_name}.yml***, which can be found [here](https://github.com/nguyennhatduy78/azuread/blob/fb97a7881f1e359106b63ea927f4a162dd70d3b3/src/main/resources/application-PS.yml)
+### Azure AD credentials 
+There are 2 ways to get credentials for GraphClient
+#### Credentials in configuration
+Credentials can be configured in the ***application-{profile_name}.yml*** under section **azure**. There are 3 fields that needs configuring: **clien-id, tenant-id, client-secret**. It should look like this : 
+```
+env-credentials: false
+azure:
+  client-id: {client-id}
+  tenant-id: {tenant-id}
+  client-secret: {client-secret}
+```
+This option only works when **env-credentials** is set to **false**
+#### Credentials in OS enviroment
+Credentials can be set in **System Enviroment Variables** with the same name with credential fields in configuration. 
+This option only works when **env-credentials** is set to **true**.
 ### Field Mapping
 Field mapping **MUST** follow this form: **azureField - csvField** 
 - azureFields in mapping **MUST** be **EXACT** azure field belonging to Graph User entity. For example: ***userPrincipalName, mailNickname, companyName,*** etc... All the User properties can be found here [User Properties](https://docs.microsoft.com/en-us/graph/api/resources/user?view=graph-rest-1.0#properties)
