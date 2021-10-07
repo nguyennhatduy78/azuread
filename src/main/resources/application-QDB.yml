@@ -1,9 +1,9 @@
 #Azure AD properties
 env-credentials: false
 azure:
-  client-id: d9f9d6bd-b37a-47be-a0c2-4ca741d0cd20
-  tenant-id: bea02ce7-f719-4baf-affe-47bbd90857ee
-  client-secret: qECMX8_g1VL~y0Pwdjub4JKVPLu97-~~k-
+  client-id: #client-id
+  tenant-id: #tenant-id
+  client-secret: #client-secret
 
 defaultPassword: Canon123
 domainSuffix: "#EXT#@canonusaDevSSO.onmicrosoft.com"
@@ -37,11 +37,11 @@ mail:
   content: Attached is the log for IdM Feed from QDB.
 
     !! DO NOT REPLY. AUTOMATICALLY GENERATED MAIL !!
-  tomail: nguyennhatduy78@outlook.com
-  frommail: duynn13.fsoft@gmail.com
-  password: Nhatduy1998
-  host: smtp.gmail.com
-  portssl: 587
+  tomail: pmyskar_consultant@cusa.canon.com
+  frommail: CUSA_IdM_Feed_QA@cusa.canon.com
+  password: password
+  host: LS-INRELAY-LB.cusa.canon.com
+  portssl: 25
 
 #Mapping
 mapping:
