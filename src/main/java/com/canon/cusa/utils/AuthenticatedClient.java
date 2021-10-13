@@ -26,9 +26,9 @@ public class AuthenticatedClient  {
                                @Value("${azure.client-secret}")String clientSecret,
                                @Value("${env-credentials}") String env) {
          if(Boolean.parseBoolean(env)){
-             clientId = System.getenv("client-id");
-             tenantId = System.getenv("tenant-id");
-             clientSecret = System.getenv("client-secret");
+             clientId = System.getenv("client_id");
+             tenantId = System.getenv("tenant_id");
+             clientSecret = System.getenv("client_secret");
          }
         try {
             final ClientSecretCredential clientSecretCredential = new ClientSecretCredentialBuilder()

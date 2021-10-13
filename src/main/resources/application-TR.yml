@@ -27,11 +27,13 @@ config:
 log-filename: TR_AAD_IdM_Feed_UserDetails
 
 path:
-  nashorn: D:\Work\AzureAD\azuread\src\main\java\com\canon\cusa\scripts\CustomizeField.js
-  sumary-logs: D:\Work\AzureAD\Data\logs
+  nashorn: src/main/java/com/canon/cusa/scripts/CustomizeField-TR.js
+  sumary-logs: src/main/java/com/canon/cusa/logs
 
 #Optional
 skip-create: true
+date-format: yyyyMMdd
+
 #Email
 mail:
   subject: Azure AD Status for IdM Feed from Tririga
@@ -49,9 +51,7 @@ mapping:
   users:
     # Leave field empty for further customized data from JS
     # Compulsory fields
-    - mailNickname: _
     - userPrincipalName: _
-    - displayName: _
     # Optional field
     - uid: User_ID
     - extension_6709e8b3d5bf48899aee313df83c93eb_buildingName: Building_Name

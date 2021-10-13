@@ -27,10 +27,13 @@ config:
 log-filename: QDB_AAD_IdM_Feed_UserDetails
 
 path:
-  nashorn: D:\Work\AzureAD\azuread\src\main\java\com\canon\cusa\scripts\CustomizeField.js
-  sumary-logs: D:\Work\AzureAD\Data\logs
+  nashorn: src/main/java/com/canon/cusa/scripts/CustomizeField-QDB.js
+  sumary-logs: src/main/java/com/canon/cusa/logs
+
 #Optional
 skip-create: false
+date-format: yyyyMMdd
+
 #Email
 mail:
   subject: Azure AD Status for IdM Feed from QDB
@@ -51,6 +54,7 @@ mapping:
     - mailNickname: _
     - userPrincipalName: _
     - displayName: _
+    - accountEnabled: _
     # Optional field
     - uid: NP_USERID
     - cn: FULL_NAME

@@ -4,15 +4,15 @@ import com.canon.cusa.utils.AuthenticatedClient;
 import com.canon.cusa.mapping.UserMapping;
 import com.canon.cusa.utils.Configuration;
 import com.canon.cusa.utils.EmailClient;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.microsoft.graph.content.BatchRequestContent;
 import com.microsoft.graph.content.BatchResponseContent;
 import com.microsoft.graph.http.HttpMethod;
-import com.microsoft.graph.models.Extension;
-import com.microsoft.graph.models.OpenTypeExtension;
-import com.microsoft.graph.models.PasswordProfile;
-import com.microsoft.graph.models.User;
+import com.microsoft.graph.models.*;
 import com.microsoft.graph.requests.GraphServiceClient;
+import com.microsoft.graph.requests.UserCollectionPage;
 import com.opencsv.CSVWriter;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -30,9 +30,12 @@ import java.io.Writer;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.List;
 
 @Service
 @EnableConfigurationProperties(UserMapping.class)
@@ -69,7 +72,7 @@ public class UserService {
             }
             batchList.put("create", createRequestIDs);
         }else {
-            final String FIELD_SKIPPED_REGEX = "accountEnabled";
+            final String FIELD_SKIPPED_REGEX = "accountEnabled|manager";
             Map<String, String> createRequestIDs = new HashMap<>();
             for (Map<String, String> userdata : users) {
                 try{
@@ -83,6 +86,16 @@ public class UserService {
                         user.accountEnabled = Boolean.valueOf(userdata.get("accountEnabled"));
                     } else {
                         user.accountEnabled = true;
+                    }
+                    if(userdata.containsKey("manager_id")){
+                        DirectoryObject manager = new DirectoryObject();
+                        manager.id = userdata.get("manager_id");
+//                        user.manager = manager;
+                        try{
+                            client.users(userdata.get("manager_id")).manager().reference().buildRequest().put(manager);
+                        } catch (Exception e){
+                            log.debug("Manager {} fail to process for user {}", userdata.get("manager"), userdata.get("userPrincipalName"));
+                        }
                     }
                     processingAdditionalUserdataLogic(user, userdata);
                     userdata.forEach((azureField,data)->{
@@ -100,7 +113,7 @@ public class UserService {
     }
 
     public void updateUser(List<Map<String, String>> users, BatchRequestContent userRequests, Map<String, Map<String,String>> batchList) {
-        final String FIELD_SKIPPED_REGEX = "userPrincipalName|mailNickname|deleteFlag|accountEnabled|currentEmail";
+        final String FIELD_SKIPPED_REGEX = "userPrincipalName|mailNickname|deleteFlag|accountEnabled|currentEmail|manager";
         Map<String, String> modifiedRequestIDs = new HashMap<>();
         for (Map<String, String> userdata : users) {
             try{
@@ -116,8 +129,16 @@ public class UserService {
                 }
                 if(userdata.containsKey("accountEnabled")){
                     user.accountEnabled = Boolean.valueOf(userdata.get("accountEnabled"));
-                } else {
-                    user.accountEnabled = true;
+                }
+                if(userdata.containsKey("manager_id")){
+                    DirectoryObject manager = new DirectoryObject();
+                    manager.id = userdata.get("manager_id");
+//                    user.manager = manager;
+                    try{
+                        client.users(userdata.get("manager_id")).manager().reference().buildRequest().put(manager);
+                    } catch (Exception e){
+                        log.debug("Manager {} fail to process for user {}", userdata.get("manager"), userdata.get("userPrincipalName"));
+                    }
                 }
                 if(delete){
                     modifiedRequestIDs.put(user.accountEnabled+"_"+userdata.get("userPrincipalName")
@@ -138,12 +159,18 @@ public class UserService {
         batchList.put("modify", modifiedRequestIDs);
     }
 
+    @Value("${date-format}")
+    private String dateFormat;
     private void setField(User user, Class<? extends User> userClass, String azureField, String data){
         Optional<Field> field = checkField(userClass, azureField );
         if(field.isPresent()){
             try{
                 if(field.get().getType() == List.class){
                     field.get().set(user, Collections.singletonList(data));
+                } else if(field.get().getType() == OffsetDateTime.class){
+                    OffsetDateTime dateTime = OffsetDateTime.of( LocalDate.parse(data, DateTimeFormatter.ofPattern(dateFormat))
+                            .atStartOfDay(), OffsetDateTime.now().getOffset());
+                    field.get().set(user, dateTime);
                 } else if(field.get().getType() == Object.class){
                     log.warn("Object value not supported for {}", azureField);
                 } else{
@@ -157,40 +184,71 @@ public class UserService {
                 user.additionalDataManager().put(azureField,new JsonPrimitive(data));
             }
         }
+    }
 
+    private void setManager(User user, Map<String,String> userdata){
     }
 
     //----------------------------------------------------------------------------
     //User processing functions
     public Map<String, List<Map<String, String>>> getUsersForCreateAndUpdate(Map<String, Map<String, String>> csvData){
-        BatchRequestContent batchRequestContent = new BatchRequestContent();
+        BatchRequestContent requests = new BatchRequestContent();
+        BatchRequestContent requestsForManager = new BatchRequestContent();
         Map<String,String> batchList = new HashMap<>();
+        Map<String,String> batchListForManager = new HashMap<>();
         Map<String, List<Map<String, String>>> validatedData = new HashMap<>(Integer.parseInt(config.getAzureConfig().get("requestLimit")));
         List<Map<String, String>> usersForUpdate = new ArrayList<>(Integer.parseInt(config.getAzureConfig().get("requestLimit")));
         List<Map<String, String>> usersForCreate = new ArrayList<>(Integer.parseInt(config.getAzureConfig().get("requestLimit")));
-        csvData.keySet().forEach(principalName -> {
-            String principalNameForSearching = principalName.replace("#EXT#", "%23EXT%23");
-            batchList.put(principalName, batchRequestContent.addBatchRequestStep(client.users(principalNameForSearching).buildRequest()));
-        });
-        BatchResponseContent batchResponseContent = client.batch().buildRequest().post(batchRequestContent);
-        StringBuffer userUpdate = new StringBuffer();
-        StringBuffer userCreate = new StringBuffer();
-        batchList.forEach((principalName,requestID) -> {
-            try {
-                User user = Objects.requireNonNull(batchResponseContent.getResponseById(requestID)).getDeserializedBody(User.class);
-                csvData.get(principalName).put("currentEmail",user.mail);
-                usersForUpdate.add(csvData.get(principalName));
-                userUpdate.append(principalName).append(", ");
-            } catch (Exception e){
-                usersForCreate.add(csvData.get(principalName));
-                userCreate.append(principalName).append(", ");
+        csvData.forEach((principalName, user)->{
+            String filter = "startsWith(userPrincipalName,'"+user.get("uid")+"')";
+            batchList.put(principalName,requests.addBatchRequestStep(client.users().buildRequest().filter(filter)));
+            if(user.containsKey("manager")){
+                String filterForManager = "startsWith(userPrincipalName,'"+user.get("manager")+"')";
+                batchListForManager.put(principalName, requestsForManager.addBatchRequestStep(client.users().buildRequest().filter(filterForManager)));
             }
         });
+
+        if(requestsForManager.requests != null){
+            try{
+                BatchResponseContent responsesForManager = client.batch().buildRequest().post(requestsForManager);
+                batchListForManager.forEach((principalName, requestID) -> {
+                    JsonArray array = Objects.requireNonNull(Objects.requireNonNull(responsesForManager.getResponseById(requestID)).body).getAsJsonObject().get("value").getAsJsonArray();
+                    if(array.size() == 1){
+                        JsonElement user = array.get(0);
+                        csvData.get(principalName).put("manager_id", user.getAsJsonObject().get("id").getAsString());
+                    }else{
+                        //TODO: log manager not found
+                    }
+                });
+            } catch (Exception e){
+                log.debug("Manager requests error: {}", e.getMessage());
+            }
+        }
+        try{
+            BatchResponseContent responses = client.batch().buildRequest().post(requests);
+            batchList.forEach((principalName,requestID) -> {
+                assert responses != null;
+                JsonArray array = Objects.requireNonNull(Objects.requireNonNull(responses.getResponseById(requestID)).body).getAsJsonObject().get("value").getAsJsonArray();
+                if(array.size() == 1){
+                    JsonElement user = array.get(0);
+                    if(user.getAsJsonObject().get("mail") != null) {
+                        csvData.get(principalName).put("currentEmail", user.getAsJsonObject().get("mail").getAsString());
+                    }else {
+                        csvData.get(principalName).put("currentEmail", "");
+                        //TODO: check
+                    }
+                    usersForUpdate.add(csvData.get(principalName));
+                }else if(array.size() == 0){
+                    usersForCreate.add(csvData.get(principalName));
+                } else {
+                    log.info("Duplicated users found: {}",principalName);
+                }
+            });
+        } catch (Exception e){
+            log.debug("Response error: {}", e.getMessage());
+        }
         validatedData.put("update", usersForUpdate);
         validatedData.put("create", usersForCreate);
-        log.debug("Validated users: ");
-        log.debug("+ User found for update: {}",userUpdate);
-        log.debug("+ User found for create: {}",userCreate);
         return validatedData;
     }
 
@@ -224,12 +282,22 @@ public class UserService {
             csvDataPreprocessed.forEach(userData ->{
                 Map<String, String> tmp = new HashMap<>();
                 tmp.put("domainSuffix", domainSuffix);
+                if(mapper.containsKey("userPrincipalName")){
+                    tmp.put("userPrincipalName", "");
+                }
+                if(mapper.containsKey("mailNickname")){
+                    tmp.put("mailNickname", "");
+                }
+                if(mapper.containsKey("displayName")){
+                    tmp.put("displayName","");
+                }
+                if(mapper.containsKey("accountEnabled")){
+                    tmp.put("accountEnabled", "");
+                }
                 mapper.forEach((azureField, csvField)->{
-                    if(userData.get(csvField)!= null){
-                        tmp.put(azureField, userData.get(csvField));
-                    } else {
-                        tmp.put(azureField,"");
-                    }
+                    if(userData.get(csvField) != null)
+                        if (!userData.get(csvField).trim().equals(""))
+                            tmp.put(azureField, userData.get(csvField));
                 });
                 tmp.forEach((azureField, data) -> {
                     Optional<String> customizeValue = customizeFieldValue(azureField, tmp);
@@ -363,18 +431,25 @@ public class UserService {
         log.info("Failed users: ");
         log.info(String.join(",",failUsers));
         log.info("-------------");
-        String logs = "Total number of users processed: "+ totalUser+"\r\n" +
-                "+ Number of created users: "+createUsers.size()+"\r\n"+
-                "+ Number of modified users: "+ modifiedUsers.size()+"\r\n"+
-                "+ Number of disabled users: "+disabledUsers.size()+"\r\n"+
-                "+ Number of enabled users: "+enabledUsers.size()+"\r\n"+
-                "+ Number of failed users: "+failUsers.size()+"\r\n"+
-                "-----------------------------------"+"\r\n"+
-                "+ Created users: " + String.join(",", createUsers)+"\r\n"+
-                "+ Modified users: " + String.join(",",modifiedUsers)+"\r\n"+
-                "+ Disabled users: " + String.join(",",disabledUsers)+"\r\n"+
-                "+ Enabled users: " + String.join(",",enabledUsers)+"\r\n"+
-                "+ Failed users: " + String.join(",",failUsers);
+        String logs = "*******************************************************"+"\r\n"+
+                "Users Processed by IdM Feed from PeopleSoft"+"\r\n"+
+                "*******************************************************"+"\r\n"+
+                "Total Number of Users Processed (Created + Modified + Failed): "+ totalUser+"\r\n" +
+                "Number of Users Created: "+createUsers.size()+"\r\n"+
+                "Number of Users Modified: "+ modifiedUsers.size()+"\r\n"+
+                "Number of Users Enabled: "+enabledUsers.size()+"\r\n"+
+                "Number of Users Disabled: "+disabledUsers.size()+"\r\n"+
+                "Number of Users Failed: "+failUsers.size()+"\r\n"+
+                "*******************************************************"+"\r\n"+
+                "Users Created: " + "\r\n"+String.join(";", createUsers)+"\r\n"+
+                "*******************************************************"+"\r\n"+
+                "Users Modified: " + "\r\n"+ String.join(";",modifiedUsers)+"\r\n"+
+                "*******************************************************"+"\r\n"+
+                "Users Enabled: " + "\r\n"+ String.join(";",enabledUsers)+"\r\n"+
+                "*******************************************************"+"\r\n"+
+                "Users Disabled: " + "\r\n"+ String.join(";",disabledUsers)+"\r\n"+
+                "*******************************************************"+"\r\n"+
+                "Users Failed: " + "\r\n"+ String.join(";",failUsers);
         processingLogs(logs);
     }
 
@@ -392,14 +467,14 @@ public class UserService {
                 try{
                     response.getResponseById(requestID).getDeserializedBody(User.class);
                     if(validate.contains("true")){
-                        enabledUsers.add(username.substring(5).split("@")[0]
+                        enabledUsers.add(username.substring(5).split("_")[0]
                                 +" - "+users.get(username.substring(5)).get("displayName"));
-                        createUsers.add(username.substring(5).split("@")[0]
+                        createUsers.add(username.substring(5).split("_")[0]
                                 +" - "+users.get(username.substring(5)).get("displayName"));
                     } else {
-                        disabledUsers.add(username.substring(6).split("@")[0]
+                        disabledUsers.add(username.substring(6).split("_")[0]
                                 +" - "+users.get(username.substring(6)).get("displayName"));
-                        createUsers.add(username.substring(6).split("@")[0]
+                        createUsers.add(username.substring(6).split("_")[0]
                                 +" - "+users.get(username.substring(6)).get("displayName"));
                     }
                 } catch (Exception e){
@@ -416,14 +491,14 @@ public class UserService {
                 try{
                     response.getResponseById(requestID).getDeserializedBody(User.class);
                     if(validate.contains("true")){
-                        enabledUsers.add(username.substring(5).split("@")[0]
+                        enabledUsers.add(username.substring(5).split("_")[0]
                                 +" - "+users.get(username.substring(5)).get("displayName"));
-                        modifiedUsers.add(username.substring(5).split("@")[0]
+                        modifiedUsers.add(username.substring(5).split("_")[0]
                                 +" - "+users.get(username.substring(5)).get("displayName"));
                     } else {
-                        disabledUsers.add(username.substring(6).split("@")[0]
+                        disabledUsers.add(username.substring(6).split("_")[0]
                                 +" - "+users.get(username.substring(6)).get("displayName"));
-                        modifiedUsers.add(username.substring(6).split("@")[0]
+                        modifiedUsers.add(username.substring(6).split("_")[0]
                                 +" - "+users.get(username.substring(6)).get("displayName"));
                     }
                 } catch (Exception e){

@@ -24,9 +24,6 @@ function userPrincipalName (userdata){
     return result+domainSuffix;
 }
 
-function mailNickname(userdata){
-    return userdata.get("surname");
-}
 function displayName(userdata){
     if(userdata.get("cn") === ""){
         return userdata.get("givenName") + " "+userdata.get("middleName") +" "+userdata.get("surname");
@@ -37,6 +34,17 @@ function displayName(userdata){
     return userdata.get("cn").split(",")[1] +" "+userdata.get("cn").split(",")[0];
 }
 
+function accountEnabled(userdata){
+    var empStatus = userdata.get("extension_6709e8b3d5bf48899aee313df83c93eb_emplStatus").toLowerCase();
+    var lastWorkDay = userdata.get("extension_6709e8b3d5bf48899aee313df83c93eb_lastWorkingDay");
+    if(empStatus == "a" && lastWorkDay == "" || lastWorkDay == null){
+        return true;
+    }
+    if((empStatus == "a" || empStatus == "t") && lastWorkDay != "" ){
+        return false;
+    }
+    return true;
+}
 
 //Validate user data from csv
 function validate(userdata){

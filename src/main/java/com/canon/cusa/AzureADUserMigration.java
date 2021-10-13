@@ -35,7 +35,7 @@ public class AzureADUserMigration implements CommandLineRunner {
         this.client = authenticatedClient.getClient();
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         SpringApplication.run(AzureADUserMigration.class, args);
     }
 
@@ -96,6 +96,7 @@ public class AzureADUserMigration implements CommandLineRunner {
             });
         } catch(Exception e){
             log.debug("CSV error : {}", e.getMessage());
+            e.printStackTrace();
         }
 
     }

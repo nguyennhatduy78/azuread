@@ -1,5 +1,5 @@
 #Azure AD properties
-env-credentials: false
+env-credentials: true
 azure:
   client-id: #client-id
   tenant-id: #tenant-id
@@ -25,24 +25,25 @@ config:
 
 #Constants
 log-filename: PS_AAD_IdM_Feed_UserDetails
-
 path:
-  nashorn: D:\Work\AzureAD\azuread\src\main\java\com\canon\cusa\scripts\CustomizeField.js
-  sumary-logs: D:\Work\AzureAD\Data\logs
+  nashorn: src/main/java/com/canon/cusa/scripts/CustomizeField-PS.js
+  sumary-logs: src/main/java/com/canon/cusa/logs
 
 #Optional
 skip-create: true
+date-format: yyyyMMdd
+
 #Email
 mail:
   subject: Azure AD Status for IdM Feed from PeopleSoft CUSA
   content: Attached is the log for IdM Feed from PeopleSoft CUSA.
 
     !! DO NOT REPLY. AUTOMATICALLY GENERATED MAIL !!
-  tomail: pmyskar_consultant@cusa.canon.com
-  frommail: CUSA_IdM_Feed_QA@cusa.canon.com
-  password: password
-  host: LS-INRELAY-LB.cusa.canon.com
-  portssl: 25
+  tomail: nguyennhatduy78@gmail.com #pmyskar_consultant@cusa.canon.com
+  frommail: duynn13.fsoft@gmail.com #CUSA_IdM_Feed_QA@cusa.canon.com
+  password:  Nhatduy1998 #password
+  host: smtp.gmail.com #LS-INRELAY-LB.cusa.canon.com
+  portssl: 587 #25
 
 #Mapping
 mapping:
@@ -52,7 +53,9 @@ mapping:
     - mailNickname: _
     - userPrincipalName: _
     - displayName: _
+    - accountEnabled: _
     # Optional field
+    - manager: SUPERVISOR_ID
     - cn: NAME
     - uid: EMPLID
     - givenName: FIRST_NAME

@@ -46,6 +46,8 @@ public class EmailClient {
     properties.setProperty("mail.smtp.starttls.enable", "true");
     properties.setProperty("mail.smtp.host", host);
     properties.setProperty("mail.smtp.port", port);
+    properties.put("mail.smtp.ssl.trust", host);
+    properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
     // Get the default Session object.
       this.session = Session.getInstance(properties, new Authenticator() {
         @Override
@@ -103,7 +105,7 @@ public class EmailClient {
       Transport.send(message);
       log.info("Sent message successfully....");
     } catch (MessagingException mex) {
-      mex.printStackTrace();
+      log.info("Message failed to sent: {}", mex.getMessage());
     }
   }
 }
