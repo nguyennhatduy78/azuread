@@ -6,17 +6,16 @@ import com.canon.cusa.utils.AuthenticatedClient;
 import com.canon.cusa.utils.Configuration;
 import com.microsoft.graph.content.BatchRequestContent;
 import com.microsoft.graph.content.BatchResponseContent;
+import com.microsoft.graph.models.DirectoryObject;
 import com.microsoft.graph.requests.GraphServiceClient;
 import com.opencsv.CSVReader;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.io.FileReader;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -68,6 +67,7 @@ public class AzureADUserMigration implements CommandLineRunner {
             for (int i = 0; i < loops+1; i++) {
                 BatchRequestContent userRequests = new BatchRequestContent();
                 Map<String, Map<String,String>> batch = new HashMap<>();
+                Map<String, String> managers = new HashMap<>();
                 Future<Map<Integer,Map<String, Map<String, String>>>> rawData = executor.submit(new ReadData(
                         count,
                         i,
@@ -80,11 +80,13 @@ public class AzureADUserMigration implements CommandLineRunner {
                 Map<Integer, Map<String, Map<String, String>>> userdata = rawData.get();
                 count = (int) userdata.keySet().toArray()[0];
                 final int tmpCount = count;
-                users.putAll(userdata.get(count));
                 Map<String, List<Map<String, String>>> validatedData = executor.submit(() -> userService.getUsersForCreateAndUpdate(userdata.get(tmpCount))).get();
-                executor.submit(new UpdateTask(userService,validatedData.get("update"),userRequests, batch));
-                executor.submit(new CreateTask(userService, validatedData.get("create"), userRequests, batch));
+                executor.submit(new UpdateTask(userService,validatedData.get("update"),userRequests, batch, managers));
+                executor.submit(new CreateTask(userService, validatedData.get("create"), userRequests, batch, managers));
                 BatchResponseContent response = executor.submit(() -> client.batch().buildRequest().post(userRequests)).get();
+                executor.submit(()->userService.processingManagerRequests(managers));
+                validatedData.get("update").forEach(user -> users.put(user.get("userPrincipalName"), user));
+                validatedData.get("create").forEach(user -> users.put(user.get("userPrincipalName"), user));
                 responses.add(response);
                 batches.add(batch);
             }
@@ -159,18 +161,20 @@ class UpdateTask implements Runnable{
     private final List<Map<String,String>> data;
     private final BatchRequestContent userRequests;
     private final Map<String, Map<String,String>> requestIDs;
+    private final Map<String,String> managers;
 
-    UpdateTask(UserService userService, List<Map<String, String>> data, BatchRequestContent userRequests, Map<String, Map<String,String>> requestIDs) {
+    UpdateTask(UserService userService, List<Map<String, String>> data, BatchRequestContent userRequests, Map<String, Map<String, String>> requestIDs, Map<String, String> managers) {
         this.userService = userService;
         this.data = data;
         this.userRequests = userRequests;
         this.requestIDs = requestIDs;
+        this.managers = managers;
     }
 
     @Override
     public void run() {
         if(!data.isEmpty()){
-            userService.updateUser(data,userRequests, requestIDs);
+            userService.updateUser(data,userRequests, requestIDs, managers);
         }
     }
 }
@@ -181,17 +185,19 @@ class CreateTask implements Runnable {
     private final List<Map<String,String>> data;
     private final BatchRequestContent userRequests;
     private final Map<String, Map<String,String>> requestIDs;
+    private final Map<String,String> managers;
 
-    CreateTask(UserService userService, List<Map<String, String>> data, BatchRequestContent userRequests, Map<String, Map<String, String>> requestIDs) {
+    CreateTask(UserService userService, List<Map<String, String>> data, BatchRequestContent userRequests, Map<String, Map<String, String>> requestIDs, Map<String, String> managers) {
         this.userService = userService;
         this.data = data;
         this.userRequests = userRequests;
         this.requestIDs = requestIDs;
+        this.managers = managers;
     }
     @Override
     public void run() {
         if(!data.isEmpty()){
-            userService.createUser(data,userRequests,requestIDs);
+            userService.createUser(data,userRequests,requestIDs, managers);
         }
     }
 }

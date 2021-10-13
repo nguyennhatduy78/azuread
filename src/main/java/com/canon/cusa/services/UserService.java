@@ -7,13 +7,17 @@ import com.canon.cusa.utils.EmailClient;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 import com.microsoft.graph.content.BatchRequestContent;
 import com.microsoft.graph.content.BatchResponseContent;
 import com.microsoft.graph.http.HttpMethod;
 import com.microsoft.graph.models.*;
+import com.microsoft.graph.options.HeaderOption;
 import com.microsoft.graph.requests.GraphServiceClient;
 import com.microsoft.graph.requests.UserCollectionPage;
 import com.opencsv.CSVWriter;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +62,7 @@ public class UserService {
     private String defaultPassword;
     @Value("${skip-create}")
     private Boolean skipCreate;
-    public void createUser(List<Map<String, String>> users, BatchRequestContent userRequests, Map<String, Map<String, String>> batchList) {
+    public void createUser(List<Map<String, String>> users, BatchRequestContent userRequests, Map<String, Map<String, String>> batchList, Map<String, String> managers) {
         if(skipCreate){
             log.info("Creating user function is now disabled!!!");
             Map<String, String> createRequestIDs = new HashMap<>();
@@ -88,19 +92,12 @@ public class UserService {
                         user.accountEnabled = true;
                     }
                     if(userdata.containsKey("manager_id")){
-                        DirectoryObject manager = new DirectoryObject();
-                        manager.id = userdata.get("manager_id");
-//                        user.manager = manager;
-                        try{
-                            client.users(userdata.get("manager_id")).manager().reference().buildRequest().put(manager);
-                        } catch (Exception e){
-                            log.debug("Manager {} fail to process for user {}", userdata.get("manager"), userdata.get("userPrincipalName"));
-                        }
+                        managers.put(userdata.get("userPrincipalName"),userdata.get("manager_id"));
                     }
                     processingAdditionalUserdataLogic(user, userdata);
                     userdata.forEach((azureField,data)->{
                         if (azureField.matches(FIELD_SKIPPED_REGEX)) return;
-                        setField(user, userClass, azureField, data);
+                        setField(user, userClass, azureField, data, userdata.get("userPrincipalName").split("_")[0]);
                     });
                     createRequestIDs.put(user.accountEnabled+"_"+userdata.get("userPrincipalName")
                             ,userRequests.addBatchRequestStep(client.users().buildRequest(),HttpMethod.POST,user));
@@ -112,7 +109,7 @@ public class UserService {
         }
     }
 
-    public void updateUser(List<Map<String, String>> users, BatchRequestContent userRequests, Map<String, Map<String,String>> batchList) {
+    public void updateUser(List<Map<String, String>> users, BatchRequestContent userRequests, Map<String, Map<String,String>> batchList, Map<String, String> managers) {
         final String FIELD_SKIPPED_REGEX = "userPrincipalName|mailNickname|deleteFlag|accountEnabled|currentEmail|manager";
         Map<String, String> modifiedRequestIDs = new HashMap<>();
         for (Map<String, String> userdata : users) {
@@ -129,16 +126,11 @@ public class UserService {
                 }
                 if(userdata.containsKey("accountEnabled")){
                     user.accountEnabled = Boolean.valueOf(userdata.get("accountEnabled"));
+                }else{
+                    user.accountEnabled =true;
                 }
                 if(userdata.containsKey("manager_id")){
-                    DirectoryObject manager = new DirectoryObject();
-                    manager.id = userdata.get("manager_id");
-//                    user.manager = manager;
-                    try{
-                        client.users(userdata.get("manager_id")).manager().reference().buildRequest().put(manager);
-                    } catch (Exception e){
-                        log.debug("Manager {} fail to process for user {}", userdata.get("manager"), userdata.get("userPrincipalName"));
-                    }
+                    managers.put(userdata.get("userPrincipalName"), userdata.get("manager_id"));
                 }
                 if(delete){
                     modifiedRequestIDs.put(user.accountEnabled+"_"+userdata.get("userPrincipalName")
@@ -148,7 +140,7 @@ public class UserService {
                 processingAdditionalUserdataLogic(user, userdata);
                 userdata.forEach((azureField,data)->{
                     if (azureField.matches(FIELD_SKIPPED_REGEX)) return;
-                    setField(user, userClass, azureField, data);
+                    setField(user, userClass, azureField, data,userdata.get("userPrincipalName").split("_")[0]);
                 });
                 modifiedRequestIDs.put(user.accountEnabled+"_"+userdata.get("userPrincipalName")
                         ,userRequests.addBatchRequestStep(client.users(userPrincipalNameForRequest).buildRequest(), HttpMethod.PATCH, user));
@@ -158,19 +150,41 @@ public class UserService {
         }
         batchList.put("modify", modifiedRequestIDs);
     }
+    public void processingManagerRequests(Map<String,String> managers){
+        BatchRequestContent requests = new BatchRequestContent();
+        managers.forEach((userPrincipalName, managerID)->{
+            String userPrincipalNameForRequest = userPrincipalName;
+            if(userPrincipalNameForRequest.contains("#EXT#")){
+                userPrincipalNameForRequest = userPrincipalNameForRequest.replace("#EXT#", "%23EXT%23");
+            }
+            ODataId oDataId = new ODataId();
+            oDataId.setOData("https://graph.microsoft.com/v1.0/users/"+managerID);
+            requests.addBatchRequestStep(client.users(userPrincipalNameForRequest)
+                    .manager().reference().buildRequest(new HeaderOption("Content-Type", "application/json")), HttpMethod.PUT, oDataId);
+        });
 
+        try{
+            client.batch().buildRequest().post(requests);
+        }catch (Exception e){
+            log.debug("Manager request process fail: {}", e.getMessage());
+        }
+    }
     @Value("${date-format}")
     private String dateFormat;
-    private void setField(User user, Class<? extends User> userClass, String azureField, String data){
+    private void setField(User user, Class<? extends User> userClass, String azureField, String data, String emplID){
         Optional<Field> field = checkField(userClass, azureField );
         if(field.isPresent()){
             try{
                 if(field.get().getType() == List.class){
                     field.get().set(user, Collections.singletonList(data));
                 } else if(field.get().getType() == OffsetDateTime.class){
-                    OffsetDateTime dateTime = OffsetDateTime.of( LocalDate.parse(data, DateTimeFormatter.ofPattern(dateFormat))
-                            .atStartOfDay(), OffsetDateTime.now().getOffset());
-                    field.get().set(user, dateTime);
+                    try{
+                        OffsetDateTime dateTime = OffsetDateTime.of( LocalDate.parse(data, DateTimeFormatter.ofPattern(dateFormat))
+                                .atStartOfDay(), OffsetDateTime.now().getOffset());
+                        field.get().set(user, dateTime);
+                    } catch (Exception e){
+                        log.warn("Skipped setting field for {} of {}. Reason: {}", azureField,emplID,e.getMessage());
+                    }
                 } else if(field.get().getType() == Object.class){
                     log.warn("Object value not supported for {}", azureField);
                 } else{
@@ -212,12 +226,10 @@ public class UserService {
             try{
                 BatchResponseContent responsesForManager = client.batch().buildRequest().post(requestsForManager);
                 batchListForManager.forEach((principalName, requestID) -> {
-                    JsonArray array = Objects.requireNonNull(Objects.requireNonNull(responsesForManager.getResponseById(requestID)).body).getAsJsonObject().get("value").getAsJsonArray();
+                    JsonArray array = responsesForManager.getResponseById(requestID).body.getAsJsonObject().get("value").getAsJsonArray();
                     if(array.size() == 1){
                         JsonElement user = array.get(0);
                         csvData.get(principalName).put("manager_id", user.getAsJsonObject().get("id").getAsString());
-                    }else{
-                        //TODO: log manager not found
                     }
                 });
             } catch (Exception e){
@@ -228,14 +240,16 @@ public class UserService {
             BatchResponseContent responses = client.batch().buildRequest().post(requests);
             batchList.forEach((principalName,requestID) -> {
                 assert responses != null;
-                JsonArray array = Objects.requireNonNull(Objects.requireNonNull(responses.getResponseById(requestID)).body).getAsJsonObject().get("value").getAsJsonArray();
+                JsonArray array = responses.getResponseById(requestID).body.getAsJsonObject().get("value").getAsJsonArray();
                 if(array.size() == 1){
                     JsonElement user = array.get(0);
+                    if(user.getAsJsonObject().get("displayName") != null){
+                        csvData.get(principalName).put("displayName", user.getAsJsonObject().get("displayName").getAsString());
+                    }
                     if(user.getAsJsonObject().get("mail") != null) {
                         csvData.get(principalName).put("currentEmail", user.getAsJsonObject().get("mail").getAsString());
                     }else {
                         csvData.get(principalName).put("currentEmail", "");
-                        //TODO: check
                     }
                     usersForUpdate.add(csvData.get(principalName));
                 }else if(array.size() == 0){
@@ -295,9 +309,8 @@ public class UserService {
                     tmp.put("accountEnabled", "");
                 }
                 mapper.forEach((azureField, csvField)->{
-                    if(userData.get(csvField) != null)
-                        if (!userData.get(csvField).trim().equals(""))
-                            tmp.put(azureField, userData.get(csvField));
+                    if(userData.get(csvField) != null && !userData.get(csvField).trim().equals(""))
+                        tmp.put(azureField, userData.get(csvField));
                 });
                 tmp.forEach((azureField, data) -> {
                     Optional<String> customizeValue = customizeFieldValue(azureField, tmp);
@@ -396,6 +409,8 @@ public class UserService {
     private String receiver;
     @Value("${mail.content}")
     private String content;
+    @Value("${department-name}")
+    private String departmentName;
     public void processFinalResult(List<Map<String,Map<String,String>>> batches, List<BatchResponseContent> responses, Map<String, Map<String, String>> users){
         log.info("-----------------------------------");
         log.info("Final result: ");
@@ -432,7 +447,7 @@ public class UserService {
         log.info(String.join(",",failUsers));
         log.info("-------------");
         String logs = "*******************************************************"+"\r\n"+
-                "Users Processed by IdM Feed from PeopleSoft"+"\r\n"+
+                "Users Processed by IdM Feed from "+departmentName+"\r\n"+
                 "*******************************************************"+"\r\n"+
                 "Total Number of Users Processed (Created + Modified + Failed): "+ totalUser+"\r\n" +
                 "Number of Users Created: "+createUsers.size()+"\r\n"+
@@ -478,9 +493,12 @@ public class UserService {
                                 +" - "+users.get(username.substring(6)).get("displayName"));
                     }
                 } catch (Exception e){
-                    e.printStackTrace();
-                    failUsers.add(username.substring(username.split("_")[0].length()+1).split("@")[0]
-                            +" - "+users.get(username.substring(username.split("_")[0].length()+1)).get("displayName"));
+                    if(!skipCreate){
+                        failUsers.add(username.substring(username.split("_")[0].length()+1).split("@")[0]
+                                +" - "+users.get(username.substring(username.split("_")[0].length()+1)).get("displayName"));
+                    } else{
+                        failUsers.add(username.split("_")[1]);
+                    }
                     log.debug("User {} error: {}",username, e.getMessage());
                 }
             });
@@ -502,7 +520,6 @@ public class UserService {
                                 +" - "+users.get(username.substring(6)).get("displayName"));
                     }
                 } catch (Exception e){
-                    e.printStackTrace();
                     failUsers.add(username.substring(username.split("_")[0].length()+1).split("@")[0]
                             +" - "+users.get(username.substring(username.split("_")[0].length()+1)).get("displayName"));
                     log.debug("User {} error: {}",username, e.getMessage());
@@ -528,5 +545,13 @@ public class UserService {
         }
     }
 
+}
+
+
+@Data
+class ODataId {
+    @Expose
+    @SerializedName("@odata.id")
+    private String oData;
 }
 

@@ -25,13 +25,13 @@ function userPrincipalName (userdata){
 }
 
 function displayName(userdata){
-    if(userdata.get("cn") === ""){
-        return userdata.get("givenName") + " "+userdata.get("middleName") +" "+userdata.get("surname");
+    if(userdata.get("displayName") === ""){
+        return userdata.get("givenName") + " "+userdata.get("surname");
     }
-    if(!userdata.get("cn").contains(",")){
-        return userdata.get("givenName") + " "+userdata.get("middleName") +" "+userdata.get("surname");
+    if(!userdata.get("displayName").contains(",")){
+        return userdata.get("givenName") + " "+userdata.get("surname");
     }
-    return userdata.get("cn").split(",")[1] +" "+userdata.get("cn").split(",")[0];
+    return userdata.get("displayName").split(",")[1] +" "+userdata.get("displayName").split(",")[0];
 }
 
 function accountEnabled(userdata){

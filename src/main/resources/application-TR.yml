@@ -24,8 +24,8 @@ config:
     - forceChangePasswordNextSignIn: true
 
 #Constants
+department-name: Tririga
 log-filename: TR_AAD_IdM_Feed_UserDetails
-
 path:
   nashorn: src/main/java/com/canon/cusa/scripts/CustomizeField-TR.js
   sumary-logs: src/main/java/com/canon/cusa/logs
@@ -53,6 +53,7 @@ mapping:
     # Compulsory fields
     - userPrincipalName: _
     # Optional field
+    - manager: SUPERVISOR_ID
     - uid: User_ID
     - extension_6709e8b3d5bf48899aee313df83c93eb_buildingName: Building_Name
     - extension_6709e8b3d5bf48899aee313df83c93eb_floor: Floor

@@ -63,4 +63,9 @@ application-{Name-of-Profile}.yml
 ```
 - ***Path-to-config-folder***: path to the folder containing configuration files.
 - ***Path-to-csvfile***: path to the .csv file
+- Example: 
+  - PeopleSoft: java -jar AzureADUserMigration.jar C:\file.csv --spring.profiles.active=PS --spring.config.location=C:\path_to_config_file\
+  - QDB: java -jar AzureADUserMigration.jar C:\file.csv --spring.profiles.active=QDB --spring.config.location=C:\path_to_config_file\
+  - Tririga: java -jar AzureADUserMigration.jar C:\file.csv --spring.profiles.active=TR --spring.config.location=C:\path_to_config_file\
+
 
