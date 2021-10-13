@@ -53,7 +53,7 @@ mvn install
 ### Run 
 After installing, ***.jar*** file can be found in ***/target*** under root project folder. To run this ***.jar***, executing command below
 ```
-java -jar {Name-of-jar}.jar --spring.profiles.active={Name-of-profile} --spring.config.location={Path-to-config-folder}  {Path-to-csvfile}
+java -jar {Name-of-jar}.jar {Path-to-csvfile} --spring.profiles.active={Name-of-profile} --spring.config.location={Path-to-config-folder}
 ```
 in which: 
 - ***Name-of-jar***:  the name of the jar file
