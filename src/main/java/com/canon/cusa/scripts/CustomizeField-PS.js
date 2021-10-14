@@ -43,7 +43,10 @@ function accountEnabled(userdata){
     if(empStatus == "a" && (lastWorkDay == "" || lastWorkDay == null)){
         return true;
     }
-    if((empStatus == "a" || empStatus == "t") && lastWorkDay != "" ){
+    if(empStatus == "a" && lastWorkDay != null && lastWorkDay != ""){
+        return false;
+    }
+    if(empStatus == "t" ){
         return false;
     }
     return true;

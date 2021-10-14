@@ -36,11 +36,10 @@ function displayName(userdata){
 
 function accountEnabled(userdata){
     var empStatus = userdata.get("extension_6709e8b3d5bf48899aee313df83c93eb_emplStatus").toLowerCase();
-    var lastWorkDay = userdata.get("extension_6709e8b3d5bf48899aee313df83c93eb_lastWorkingDay");
-    if(empStatus == "a" && lastWorkDay == "" || lastWorkDay == null){
+    if(empStatus === "a"){
         return true;
     }
-    if((empStatus == "a" || empStatus == "t") && lastWorkDay != "" ){
+    if(empStatus === "t" ){
         return false;
     }
     return true;
